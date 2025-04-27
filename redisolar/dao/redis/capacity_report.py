@@ -17,15 +17,19 @@ class CapacityReportDaoRedis(CapacityDaoBase, RedisDaoBase):
         client.zadd(capacity_ranking_key, report)
 
     def get_report(self, limit: int, **kwargs) -> CapacityReport:
+        
         capacity_ranking_key = self.key_schema.capacity_ranking_key()
+        
         p = self.redis.pipeline()
         p.zrange(capacity_ranking_key, 0, limit - 1, withscores=True)
         p.zrevrange(capacity_ranking_key, 0, limit - 1, withscores=True)
+        
         low_capacity, high_capacity = p.execute()
 
         low_capacity_list = [
             SiteCapacityTuple(site_id=v[0], capacity=v[1]) for v in low_capacity
         ]
+        
         high_capacity_list = [
             SiteCapacityTuple(site_id=v[0], capacity=v[1]) for v in high_capacity
         ]
@@ -34,7 +38,7 @@ class CapacityReportDaoRedis(CapacityDaoBase, RedisDaoBase):
 
     def get_rank(self, site_id: int, **kwargs) -> float:
         # START Challenge #4
-        # Remove the following line after you have added code to
-        # get the real rank.
-        return 0
+        client = kwargs.get('pipeline', self.redis)
+        capacity_ranking_key = self.key_schema.capacity_ranking_key()
+        return client.zrank(capacity_ranking_key, site_id)
         # END Challenge #4
