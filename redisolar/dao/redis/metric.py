@@ -122,7 +122,7 @@ class MetricDaoRedis(MetricDaoBase, RedisDaoBase):
         # START Challenge #2
         pipeline.zadd(
             metric_key,
-            {str(MeasurementMinute(value, minute_of_day)): time.timestamp()},
+            {str(MeasurementMinute(value, minute_of_day)): minute_of_day},
             nx=True
         )
         pipeline.expire(metric_key, METRIC_EXPIRATION_SECONDS)
