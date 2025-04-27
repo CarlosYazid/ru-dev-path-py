@@ -66,15 +66,14 @@ class SiteStatsDaoRedis(SiteStatsDaoBase, RedisDaoBase):
         self.redis.hincrby(key, SiteStats.COUNT, 1)
         self.redis.expire(key, WEEK_SECONDS)
         
-        compare = CompareAndUpdateScript(self.redis)
-        compare.update_if_greater(pipeline, key,
-                                   SiteStats.MAX_WH, meter_reading.wh_generated)
-        compare.update_if_less(pipeline, key,
-                                 SiteStats.MIN_WH, meter_reading.wh_generated)
+        self.compare_and_update_script.update_if_greater(
+            pipeline, key, SiteStats.MAX_WH, meter_reading.wh_generated)
         
-        max_capacity = self.redis.hget(key, SiteStats.MAX_CAPACITY)
-        if not max_capacity or meter_reading.current_capacity > float(max_capacity):
-            self.redis.hset(key, SiteStats.MAX_CAPACITY, meter_reading.wh_generated)
+        self.compare_and_update_script.update_if_less(
+            pipeline, key, SiteStats.MIN_WH, meter_reading.wh_generated)
+        
+        self.compare_and_update_script.update_if_greater(
+            pipeline, key, SiteStats.MAX_CAPACITY, meter_reading.current_capacity)
         # END Challenge #3
 
         if execute:
