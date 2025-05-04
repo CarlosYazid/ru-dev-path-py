@@ -54,10 +54,12 @@ class SiteGeoDaoRedis(SiteGeoDaoBase, RedisDaoBase):
 
     def _find_by_geo_with_capacity(self, query: GeoQuery, **kwargs) -> Set[Site]:
         # START Challenge #5
-        # Your task: Get the sites matching the GEO query.
+        site_ids = self.redis.georadius(  # type: ignore
+            self.key_schema.site_geo_key(), query.coordinate.lng, query.coordinate.lat,
+            query.radius, query.radius_unit.value)
         # END Challenge #5
 
-        p = self.redis.pipeline(transaction=False)
+        p = kwargs.get('pipeline', self.redis.pipeline(transaction=False))
 
         # START Challenge #5
         #
@@ -66,19 +68,17 @@ class SiteGeoDaoRedis(SiteGeoDaoBase, RedisDaoBase):
         #
         # Make sure to run any Redis commands against a Pipeline object
         # for better performance.
+        for site_id in site_ids:
+            p.zscore(self.key_schema.capacity_ranking_key(), site_id)    
+        
+        scores = {site_id: score for site_id, score in zip(site_ids, p.execute())}
         # END Challenge #5
 
-        # Delete the next lines after you've populated a `site_ids`
-        # and `scores` variable.
-        site_ids: List[str] = []
-        scores: Dict[str, float] = {}
-
-        for site_id in site_ids:
-            if scores[site_id] and scores[site_id] > CAPACITY_THRESHOLD:
+        for site_id in site_ids:            
+            if scores.get(site_id) and scores.get(site_id) > CAPACITY_THRESHOLD:
                 p.hgetall(self.key_schema.site_hash_key(site_id))
-        site_hashes = p.execute()
 
-        return {FlatSiteSchema().load(site) for site in site_hashes}
+        return {FlatSiteSchema().load(site) for site in p.execute()}
 
     def find_by_geo(self, query: GeoQuery, **kwargs) -> Set[Site]:
         """Find Sites using a geographic query."""
@@ -89,11 +89,10 @@ class SiteGeoDaoRedis(SiteGeoDaoBase, RedisDaoBase):
     def find_all(self, **kwargs) -> Set[Site]:
         """Find all Sites."""
         site_ids = self.redis.zrange(self.key_schema.site_geo_key(), 0, -1)
-        sites = set()
+        p = kwargs.get('pipeline', self.redis.pipeline())
 
         for site_id in site_ids:
-            key = self.key_schema.site_hash_key(site_id)
-            site_hash = self.redis.hgetall(key)
-            sites.add(FlatSiteSchema().load(site_hash))
+            p.hgetall(self.key_schema.site_hash_key(site_id))
+        site_hashes = p.execute()
 
-        return sites
+        return {FlatSiteSchema().load(site) for site in site_hashes}
