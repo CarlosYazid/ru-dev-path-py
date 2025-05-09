@@ -71,7 +71,7 @@ class SiteGeoDaoRedis(SiteGeoDaoBase, RedisDaoBase):
         for site_id in site_ids:
             p.zscore(self.key_schema.capacity_ranking_key(), site_id)    
         
-        scores = {site_id: score for site_id, score in zip(site_ids, p.execute())}
+        scores = dict(zip(site_ids, p.execute()))
         # END Challenge #5
 
         for site_id in site_ids:            

@@ -40,5 +40,5 @@ class CapacityReportDaoRedis(CapacityDaoBase, RedisDaoBase):
         # START Challenge #4
         client = kwargs.get('pipeline', self.redis)
         capacity_ranking_key = self.key_schema.capacity_ranking_key()
-        return client.zrank(capacity_ranking_key, site_id)
+        return client.zrevrank(capacity_ranking_key, site_id)
         # END Challenge #4
